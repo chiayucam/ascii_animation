@@ -30,7 +30,7 @@ void usleep(int64_t usec)
     CloseHandle(timer); 
 }
 
-static void display_frame(const AVFrame *frame, uint8_t *prevData, AVRational time_base, HANDLE hStdout)
+static void display_frame(const AVFrame *frame,  const AVFrame *prevFrame, AVRational time_base, HANDLE hStdout)
 {
     int x, y;
     uint8_t *p0, *p1, *p2, *p3;
@@ -44,17 +44,17 @@ static void display_frame(const AVFrame *frame, uint8_t *prevData, AVRational ti
         if (last_pts != AV_NOPTS_VALUE) {
             /* sleep roughly the right amount of time;
              * usleep is in microseconds, just like AV_TIME_BASE. */
-            delay = av_rescale_q(frame->pts - last_pts,
-                                 time_base, AV_TIME_BASE_Q);
-            if (delay > 0 && delay < 1000000)
-                usleep(delay);
+            delay = av_rescale_q(frame->pts - last_pts, time_base, AV_TIME_BASE_Q);
+            if (delay > 0 && delay < 1000000) {
+				usleep(delay);
+			}
         }
         last_pts = frame->pts;
     }
 
     /* Trivial ASCII grayscale display. */
     p0 = frame->data[0];
-	p1 = prevData;
+	p1 = prevFrame->data[0];
     // puts("\033c");
     for (y = 0; y < frame->height; y++) {
         p2 = p0;
@@ -78,7 +78,7 @@ static void display_frame(const AVFrame *frame, uint8_t *prevData, AVRational ti
 		p1 += frame->linesize[0];
     }
     fflush(stdout);
-	// printf("frame: %d\n", frame->display_picture_number);
+	printf("\nframe: %d", frame->coded_picture_number);
 }
 
 
@@ -165,6 +165,7 @@ int main(int argc, const char *argv[]) {
 	printf("Press enter to continue...\n");
 	getchar();
 	system("cls");
+
 	// decode video
 	AVCodecContext *pCodecContext = avcodec_alloc_context3(pCodec);
 	avcodec_parameters_to_context(pCodecContext, pCodecParameters);
@@ -181,8 +182,9 @@ int main(int argc, const char *argv[]) {
 	uint8_t *pScaledFrameBuffer = (uint8_t *)av_malloc(scaledFrameSize*sizeof(uint8_t));
 	av_image_fill_arrays(pScaledFrame->data, pScaledFrame->linesize, pScaledFrameBuffer, AV_PIX_FMT_YUV420P, 160, 60, 1);
 
-	uint8_t *prevData;
-	prevData = malloc(pScaledFrame->linesize[0]*pScaledFrame->height);
+	AVFrame *pPrevScaledFrame = av_frame_alloc();
+	uint8_t *pPrevScaledFrameBuffer = (uint8_t *)av_malloc(scaledFrameSize*sizeof(uint8_t));
+	av_image_fill_arrays(pPrevScaledFrame->data, pPrevScaledFrame->linesize, pPrevScaledFrameBuffer, AV_PIX_FMT_YUV420P, 160, 60, 1);
 
 	// unsigned char *data;
 	// data = (unsigned char *)malloc(pFrame->height * pFrame->width);
@@ -236,11 +238,11 @@ int main(int argc, const char *argv[]) {
 		
 		
 		if (pCodecContext->frame_number==1) {
-			memcpy(prevData, pScaledFrame->data[0], pScaledFrame->linesize[0] * pScaledFrame->height);
+			av_frame_copy(pPrevScaledFrame, pScaledFrame);
 			continue;
 		}
-		display_frame(pScaledFrame, prevData, pFormatContext->streams[video_stream_index]->time_base, hStdout);
-		memcpy(prevData, pScaledFrame->data[0], pScaledFrame->linesize[0] * pScaledFrame->height);
+		display_frame(pScaledFrame, pPrevScaledFrame, pFormatContext->streams[video_stream_index]->time_base, hStdout);
+		av_frame_copy(pPrevScaledFrame, pScaledFrame);
 	}
 
 
@@ -250,9 +252,9 @@ int main(int argc, const char *argv[]) {
 	avformat_free_context(pFormatContext);
 	av_frame_free(&pFrame);
 	av_frame_free(&pScaledFrame);
+	av_frame_free(&pPrevScaledFrame);
 	av_packet_free(&pPacket);
 	avcodec_free_context(&pCodecContext);
-	free(prevData);
 
 	return 0;
 }
