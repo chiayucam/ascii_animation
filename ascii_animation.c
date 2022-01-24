@@ -16,6 +16,9 @@
 static int64_t last_pts = AV_NOPTS_VALUE;
 HANDLE hStdout;
 HANDLE hStdin;
+HANDLE hdBuffer;
+int screenWidth = 160;
+int screenHeight = 60;
 
 void usleep(int64_t usec) 
 { 
@@ -30,7 +33,33 @@ void usleep(int64_t usec)
     CloseHandle(timer); 
 }
 
-static void display_frame(const AVFrame *frame,  const AVFrame *prevFrame, AVRational time_base, HANDLE hStdout)
+static void write_buffer(const AVFrame *frame, HANDLE buffer, char asciiSet[]) {
+	int x, y;
+    uint8_t *p0, *p1;
+	unsigned long cChars;
+	char ascii[1];
+
+	/* Trivial ASCII grayscale display. */
+	p0 = frame->data[0];
+    // puts("\033c");
+    for (y = 0; y < frame->height; y++) {
+        p1 = p0;
+        for (x = 0; x < frame->width; x++) {
+			// ascii[0] = asciiSet[*(p2) / 32];
+			// WriteConsoleOutputCharacter()
+			// putchar(" .,-+#$@"[*(p2) / 32]);
+            // putchar(" .,-+#$@"[*p2 / 32]);
+			// WriteConsole(hStdout, " .,-+#$@"[*(p2) / 32], 1, &cChars, NULL);
+			// p2++;
+			// p3++;
+		}
+        // putchar('\n');
+        p0 += frame->linesize[0];
+		p1 += frame->linesize[0];
+    }
+}
+
+static void display_frame(const AVFrame *frame,  const AVFrame *prevFrame, AVRational time_base, HANDLE hStdout , HANDLE hdBuffer)
 {
     int x, y;
     uint8_t *p0, *p1, *p2, *p3;
@@ -77,8 +106,8 @@ static void display_frame(const AVFrame *frame,  const AVFrame *prevFrame, AVRat
         p0 += frame->linesize[0];
 		p1 += frame->linesize[0];
     }
-    fflush(stdout);
-	printf("\nframe: %d", frame->coded_picture_number);
+    // fflush(stdout);
+	// printf("\nframe: %d", frame->coded_picture_number);
 }
 
 
@@ -96,6 +125,17 @@ int main(int argc, const char *argv[]) {
 
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
+
+	hdBuffer = CreateConsoleScreenBuffer(GENERIC_READ|GENERIC_WRITE,FILE_SHARE_WRITE|FILE_SHARE_READ,NULL,CONSOLE_TEXTMODE_BUFFER,NULL);
+
+	// SMALL_RECT m_rectWindow = { 0, 0, 1, 1 };
+	// SetConsoleWindowInfo(hStdout, TRUE, &m_rectWindow);
+
+	// Set the size of the screen buffer
+	COORD coord = { (short)screenWidth, (short)screenHeight };
+	SetConsoleScreenBufferSize(hStdout, coord);
+	SetConsoleScreenBufferSize(hdBuffer, coord);
+
 
 	// //  change console font size
 	// HANDLE hcsb = CreateFileA("CONOUT$", GENERIC_WRITE | GENERIC_READ,
@@ -159,6 +199,7 @@ int main(int argc, const char *argv[]) {
 			printf("audio codec: %d channels, sample rate %d\n", pLocalCodecParameters->channels, pLocalCodecParameters->sample_rate);
 		}
 	}
+	
 	// play music
 	// PlaySound(TEXT("./video/bad_apple.wav"), NULL, SND_ASYNC);
 
@@ -241,7 +282,7 @@ int main(int argc, const char *argv[]) {
 			av_frame_copy(pPrevScaledFrame, pScaledFrame);
 			continue;
 		}
-		display_frame(pScaledFrame, pPrevScaledFrame, pFormatContext->streams[video_stream_index]->time_base, hStdout);
+		display_frame(pScaledFrame, pPrevScaledFrame, pFormatContext->streams[video_stream_index]->time_base, hStdout, hdBuffer);
 		av_frame_copy(pPrevScaledFrame, pScaledFrame);
 	}
 
