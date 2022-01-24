@@ -17,8 +17,18 @@ static int64_t last_pts = AV_NOPTS_VALUE;
 HANDLE hStdout;
 HANDLE hStdin;
 HANDLE hdBuffer;
-int screenWidth = 160;
+int screenWidth = 180;
 int screenHeight = 60;
+char asciiSet[] = " .,-+#$@";
+
+void hidecursor()
+{
+   HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+   CONSOLE_CURSOR_INFO info;
+   info.dwSize = 100;
+   info.bVisible = FALSE;
+   SetConsoleCursorInfo(consoleHandle, &info);
+}
 
 void usleep(int64_t usec) 
 { 
@@ -33,43 +43,16 @@ void usleep(int64_t usec)
     CloseHandle(timer); 
 }
 
-static void write_buffer(const AVFrame *frame, HANDLE buffer, char asciiSet[]) {
+static void display_frame(const AVFrame *frame, HANDLE buffer, char asciiSet[], int asciiSetLength, char *data, AVRational time_base) {
 	int x, y;
     uint8_t *p0, *p1;
-	unsigned long cChars;
-	char ascii[1];
-
-	/* Trivial ASCII grayscale display. */
-	p0 = frame->data[0];
-    // puts("\033c");
-    for (y = 0; y < frame->height; y++) {
-        p1 = p0;
-        for (x = 0; x < frame->width; x++) {
-			// ascii[0] = asciiSet[*(p2) / 32];
-			// WriteConsoleOutputCharacter()
-			// putchar(" .,-+#$@"[*(p2) / 32]);
-            // putchar(" .,-+#$@"[*p2 / 32]);
-			// WriteConsole(hStdout, " .,-+#$@"[*(p2) / 32], 1, &cChars, NULL);
-			// p2++;
-			// p3++;
-		}
-        // putchar('\n');
-        p0 += frame->linesize[0];
-		p1 += frame->linesize[0];
-    }
-}
-
-static void display_frame(const AVFrame *frame,  const AVFrame *prevFrame, AVRational time_base, HANDLE hStdout , HANDLE hdBuffer)
-{
-    int x, y;
-    uint8_t *p0, *p1, *p2, *p3;
-    int64_t delay;
+	DWORD  written;
 	COORD pos;
-	unsigned long cChars;
-	char asciiSet[] = " .,-+#$@";
-	char ascii[1];
+	int64_t delay;
+	
+	char *pdata;
 
-    if (frame->pts != AV_NOPTS_VALUE) {
+	if (frame->pts != AV_NOPTS_VALUE) {
         if (last_pts != AV_NOPTS_VALUE) {
             /* sleep roughly the right amount of time;
              * usleep is in microseconds, just like AV_TIME_BASE. */
@@ -81,38 +64,33 @@ static void display_frame(const AVFrame *frame,  const AVFrame *prevFrame, AVRat
         last_pts = frame->pts;
     }
 
-    /* Trivial ASCII grayscale display. */
-    p0 = frame->data[0];
-	p1 = prevFrame->data[0];
+	
+	pdata = data;
+
+	pos.X = 0;
+	pos.Y = 0;
+	/* Trivial ASCII grayscale display. */
+	p0 = frame->data[0];
     // puts("\033c");
+	
     for (y = 0; y < frame->height; y++) {
-        p2 = p0;
-		p3 = p1;
+        p1 = p0;
         for (x = 0; x < frame->width; x++) {
-			if (*p2 != *p3) {
-				pos.X = x;
-				pos.Y = y;
-				SetConsoleCursorPosition(hStdout, pos);
-				ascii[0] = asciiSet[*(p2) / 32];
-				WriteConsole(hStdout, ascii, 1, &cChars, NULL);
-				// putchar(" .,-+#$@"[*(p2) / 32]);
-			}
+			*pdata = " .,-+#$@"[*(p1) / 32];
+			// *pAscii = asciiSet[*(p2) / 32];
+			// putchar(" .,-+#$@"[*(p2) / 32]);
             // putchar(" .,-+#$@"[*p2 / 32]);
 			// WriteConsole(hStdout, " .,-+#$@"[*(p2) / 32], 1, &cChars, NULL);
-			p2++;
-			p3++;
+			p1++;
+			pdata++;
 		}
-        // putchar('\n');
         p0 += frame->linesize[0];
-		p1 += frame->linesize[0];
     }
-    // fflush(stdout);
-	// printf("\nframe: %d", frame->coded_picture_number);
+	WriteConsoleOutputCharacter(buffer, data, frame->width * frame->height, pos, &written);
 }
 
 
-// decode packets into frames
-int decode_packet(AVPacket *pPacket, AVCodecContext *pCodecCollntext, AVFrame *pFrame);
+
 
 int main(int argc, const char *argv[]) {
 	// check input argument
@@ -126,16 +104,26 @@ int main(int argc, const char *argv[]) {
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
 
-	hdBuffer = CreateConsoleScreenBuffer(GENERIC_READ|GENERIC_WRITE,FILE_SHARE_WRITE|FILE_SHARE_READ,NULL,CONSOLE_TEXTMODE_BUFFER,NULL);
-
-	// SMALL_RECT m_rectWindow = { 0, 0, 1, 1 };
-	// SetConsoleWindowInfo(hStdout, TRUE, &m_rectWindow);
-
 	// Set the size of the screen buffer
-	COORD coord = { (short)screenWidth, (short)screenHeight };
-	SetConsoleScreenBufferSize(hStdout, coord);
-	SetConsoleScreenBufferSize(hdBuffer, coord);
+	COORD coord = { screenWidth, screenHeight };
+	SMALL_RECT const minimal_window = { 0, 0, 1, 1 };
+	SMALL_RECT Rect;
+	Rect.Top = 0; 
+    Rect.Left = 0; 
+    Rect.Bottom = screenHeight - 1; 
+    Rect.Right = screenWidth - 1;
 
+	if(!SetConsoleWindowInfo(hStdout, TRUE, &minimal_window)) {
+		printf("SetConsoleWindowInfo to minimal failed\n");
+	};
+	if (!SetConsoleScreenBufferSize(hStdout, coord)) {
+		printf("SetConsoleScreenBufferSize failed\n");
+	}
+	if (!SetConsoleWindowInfo(hStdout, TRUE, &Rect)) {
+		printf("SetConsoleWindowInfo to Rect failed\n");
+	}
+
+	hidecursor();
 
 	// //  change console font size
 	// HANDLE hcsb = CreateFileA("CONOUT$", GENERIC_WRITE | GENERIC_READ,
@@ -200,12 +188,14 @@ int main(int argc, const char *argv[]) {
 		}
 	}
 	
-	// play music
-	// PlaySound(TEXT("./video/bad_apple.wav"), NULL, SND_ASYNC);
 
 	printf("Press enter to continue...\n");
 	getchar();
 	system("cls");
+
+	// // play music
+	// PlaySound(TEXT("./video/bad_apple.wav"), NULL, SND_ASYNC);
+	
 
 	// decode video
 	AVCodecContext *pCodecContext = avcodec_alloc_context3(pCodec);
@@ -216,20 +206,16 @@ int main(int argc, const char *argv[]) {
 	AVFrame *pFrame = av_frame_alloc();
 
 	struct SwsContext *pScaledContext;
-	pScaledContext = sws_getContext(pCodecParameters->width, pCodecParameters->height, AV_PIX_FMT_YUV420P, 160, 60, AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR, NULL, NULL, NULL);
+	pScaledContext = sws_getContext(pCodecParameters->width, pCodecParameters->height, AV_PIX_FMT_YUV420P, screenWidth, screenHeight, AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR, NULL, NULL, NULL);
 
 	AVFrame *pScaledFrame = av_frame_alloc();
-	int scaledFrameSize = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, 160, 60, 1);
+	int scaledFrameSize = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, screenWidth, screenHeight, 1);
 	uint8_t *pScaledFrameBuffer = (uint8_t *)av_malloc(scaledFrameSize*sizeof(uint8_t));
-	av_image_fill_arrays(pScaledFrame->data, pScaledFrame->linesize, pScaledFrameBuffer, AV_PIX_FMT_YUV420P, 160, 60, 1);
+	av_image_fill_arrays(pScaledFrame->data, pScaledFrame->linesize, pScaledFrameBuffer, AV_PIX_FMT_YUV420P, screenWidth, screenHeight, 1);
 
-	AVFrame *pPrevScaledFrame = av_frame_alloc();
-	uint8_t *pPrevScaledFrameBuffer = (uint8_t *)av_malloc(scaledFrameSize*sizeof(uint8_t));
-	av_image_fill_arrays(pPrevScaledFrame->data, pPrevScaledFrame->linesize, pPrevScaledFrameBuffer, AV_PIX_FMT_YUV420P, 160, 60, 1);
+	char *data;
+	data = malloc(sizeof(char)*screenWidth*screenHeight);
 
-	// unsigned char *data;
-	// data = (unsigned char *)malloc(pFrame->height * pFrame->width);
-	// unsigned char data[480*360];
 	
 	while (av_read_frame(pFormatContext, pPacket) >=0) {
 		if (pPacket->stream_index != video_stream_index) {
@@ -242,8 +228,8 @@ int main(int argc, const char *argv[]) {
 		// pScaledFrame->pts = pScaledFrame->best_effort_timestamp;
 		pScaledFrame->pts = pFrame->pts;
 		pScaledFrame->pkt_dts = pFrame->pkt_dts;
-		pScaledFrame->width = 160;
-		pScaledFrame->height = 60;
+		pScaledFrame->width = screenWidth;
+		pScaledFrame->height = screenHeight;
 		pScaledFrame->coded_picture_number = pFrame->coded_picture_number;
 		pScaledFrame->display_picture_number = pFrame->display_picture_number;
 
@@ -278,24 +264,19 @@ int main(int argc, const char *argv[]) {
 
 		
 		
-		if (pCodecContext->frame_number==1) {
-			av_frame_copy(pPrevScaledFrame, pScaledFrame);
-			continue;
-		}
-		display_frame(pScaledFrame, pPrevScaledFrame, pFormatContext->streams[video_stream_index]->time_base, hStdout, hdBuffer);
-		av_frame_copy(pPrevScaledFrame, pScaledFrame);
+		display_frame(pScaledFrame, hStdout, asciiSet, sizeof(asciiSet)/sizeof(asciiSet[0])-1, data, pFormatContext->streams[video_stream_index]->time_base);
 	}
 
-
 	// PlaySound(NULL, NULL, SND_SYNC);
+	
 
 	avformat_close_input(&pFormatContext);
 	avformat_free_context(pFormatContext);
 	av_frame_free(&pFrame);
 	av_frame_free(&pScaledFrame);
-	av_frame_free(&pPrevScaledFrame);
 	av_packet_free(&pPacket);
 	avcodec_free_context(&pCodecContext);
-
+	av_free(pScaledFrameBuffer);
+	free(data);
 	return 0;
 }
