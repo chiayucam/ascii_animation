@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <time.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
@@ -17,15 +18,15 @@ static int64_t last_pts = AV_NOPTS_VALUE;
 HANDLE hStdout;
 HANDLE hStdin;
 HANDLE hdBuffer;
-int screenWidth = 180;
-int screenHeight = 60;
-char asciiSet[] = " .,-+#$@";
+int screenWidth = 480;
+int screenHeight = 135;
+char asciiSet[] = " .:-=+*#%@";
+double time_spent = 0.0;
 
 void hidecursor()
 {
    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
    CONSOLE_CURSOR_INFO info;
-   info.dwSize = 100;
    info.bVisible = FALSE;
    SetConsoleCursorInfo(consoleHandle, &info);
 }
@@ -51,22 +52,9 @@ static void display_frame(const AVFrame *frame, HANDLE buffer, char asciiSet[], 
 	int64_t delay;
 	
 	char *pdata;
-
-	if (frame->pts != AV_NOPTS_VALUE) {
-        if (last_pts != AV_NOPTS_VALUE) {
-            /* sleep roughly the right amount of time;
-             * usleep is in microseconds, just like AV_TIME_BASE. */
-            delay = av_rescale_q(frame->pts - last_pts, time_base, AV_TIME_BASE_Q);
-            if (delay > 0 && delay < 1000000) {
-				usleep(delay);
-			}
-        }
-        last_pts = frame->pts;
-    }
-
 	
+	clock_t begin = clock();
 	pdata = data;
-
 	pos.X = 0;
 	pos.Y = 0;
 	/* Trivial ASCII grayscale display. */
@@ -76,7 +64,7 @@ static void display_frame(const AVFrame *frame, HANDLE buffer, char asciiSet[], 
     for (y = 0; y < frame->height; y++) {
         p1 = p0;
         for (x = 0; x < frame->width; x++) {
-			*pdata = " .,-+#$@"[*(p1) / 32];
+			*pdata = asciiSet[*(p1) / (255/asciiSetLength)];
 			// *pAscii = asciiSet[*(p2) / 32];
 			// putchar(" .,-+#$@"[*(p2) / 32]);
             // putchar(" .,-+#$@"[*p2 / 32]);
@@ -87,6 +75,24 @@ static void display_frame(const AVFrame *frame, HANDLE buffer, char asciiSet[], 
         p0 += frame->linesize[0];
     }
 	WriteConsoleOutputCharacter(buffer, data, frame->width * frame->height, pos, &written);
+	clock_t end = clock();
+	time_spent += (double)(end - begin) / CLOCKS_PER_SEC;
+
+	if (frame->pts != AV_NOPTS_VALUE) {
+        if (last_pts != AV_NOPTS_VALUE) {
+            /* sleep roughly the right amount of time;
+             * usleep is in microseconds, just like AV_TIME_BASE. */
+            delay = av_rescale_q(frame->pts - last_pts, time_base, AV_TIME_BASE_Q);
+
+			// testing delay
+			delay -= (int64_t)(time_spent*1000000);
+
+            if (delay > 0 && delay < 1000000) {
+				usleep(delay);
+			}
+        }
+        last_pts = frame->pts;
+    }
 }
 
 
@@ -101,16 +107,18 @@ int main(int argc, const char *argv[]) {
 
 	ShowWindow(GetConsoleWindow() , SW_MAXIMIZE);
 
+	
+
+	// Set the size of the screen buffer
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
 
-	// Set the size of the screen buffer
-	COORD coord = { screenWidth, screenHeight };
+	COORD coord = { screenWidth, screenHeight + 2 };
 	SMALL_RECT const minimal_window = { 0, 0, 1, 1 };
 	SMALL_RECT Rect;
 	Rect.Top = 0; 
     Rect.Left = 0; 
-    Rect.Bottom = screenHeight - 1; 
+    Rect.Bottom = screenHeight + 1; 
     Rect.Right = screenWidth - 1;
 
 	if(!SetConsoleWindowInfo(hStdout, TRUE, &minimal_window)) {
@@ -194,7 +202,7 @@ int main(int argc, const char *argv[]) {
 	system("cls");
 
 	// // play music
-	// PlaySound(TEXT("./video/bad_apple.wav"), NULL, SND_ASYNC);
+	// PlaySound(TEXT("./video/bad_apple.mp4"), NULL, SND_ASYNC);
 	
 
 	// decode video
@@ -216,6 +224,7 @@ int main(int argc, const char *argv[]) {
 	char *data;
 	data = malloc(sizeof(char)*screenWidth*screenHeight);
 
+	clock_t begin, end;
 	
 	while (av_read_frame(pFormatContext, pPacket) >=0) {
 		if (pPacket->stream_index != video_stream_index) {
@@ -224,15 +233,18 @@ int main(int argc, const char *argv[]) {
 		avcodec_send_packet(pCodecContext, pPacket);
 		avcodec_receive_frame(pCodecContext, pFrame);
 
+		time_spent = 0.0;
+		begin = clock();
 		sws_scale(pScaledContext, (const uint8_t* const*)pFrame->data, pFrame->linesize, 0, pFrame->height, pScaledFrame->data, pScaledFrame->linesize);
 		// pScaledFrame->pts = pScaledFrame->best_effort_timestamp;
-		pScaledFrame->pts = pFrame->pts;
+		pScaledFrame->pts = pFrame->best_effort_timestamp;
 		pScaledFrame->pkt_dts = pFrame->pkt_dts;
 		pScaledFrame->width = screenWidth;
 		pScaledFrame->height = screenHeight;
 		pScaledFrame->coded_picture_number = pFrame->coded_picture_number;
 		pScaledFrame->display_picture_number = pFrame->display_picture_number;
-
+		end = clock();
+		time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
 		
 		// printf(
 		// "Frame %c (%d) pts %" PRId64 " dts %" PRId64 " key_frame %d width: %d height: %d [coded_picture_number %d, display_picture_number %d] %u\n",
