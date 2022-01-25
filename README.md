@@ -21,7 +21,7 @@ Source: https://www.youtube.com/watch?v=vWLBFdf_ss0
 
 
 ## To do list
-* clean up and refactor messy cody
+* clean up and refactor messy code
 * add option to change display quality of resolution and adjust the fontsize accordingly
 * automatically choose proper resolution ratio according to original video's aspect ratio
 * add audio decoding and playback
