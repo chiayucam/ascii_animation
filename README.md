@@ -4,11 +4,19 @@ Uses FFmpeg libraries to decode video into AVframes and display them as ascii ch
 
 ## Examples
 1. Bad apple  
-https://user-images.githubusercontent.com/48814609/151071355-0612967d-9d50-433f-abe3-dad3d319a8cf.mp4  
+
+
+https://user-images.githubusercontent.com/48814609/151072052-bcaf106b-2133-4d8d-b470-ce08edeea4b5.mp4  
+
+
 Source: https://www.youtube.com/watch?v=9lNZ_Rnr7Jc
 
 2. Holymyth vs Ina  
-https://user-images.githubusercontent.com/48814609/151070325-19a6fd48-686e-4239-992b-d86eb8bee2b5.mp4  
+
+
+https://user-images.githubusercontent.com/48814609/151071998-3c9b42f5-3f57-4de6-a0f3-d62675dfd56c.mp4  
+
+
 Source: https://www.youtube.com/watch?v=vWLBFdf_ss0
 
 
