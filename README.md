@@ -22,7 +22,7 @@ Source: https://www.youtube.com/watch?v=vWLBFdf_ss0
 
 ## To do list
 * clean up and refactor messy code
-* add option to change display quality of resolution and adjust the fontsize accordingly
+* add option to change resolution quality and adjust the console fontsize accordingly
 * automatically choose proper resolution ratio according to original video's aspect ratio
 * add audio decoding and playback
 * proper video frame playback timestamps (currently doesn't match original video timestamps)
