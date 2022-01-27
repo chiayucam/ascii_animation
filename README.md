@@ -20,6 +20,14 @@ https://user-images.githubusercontent.com/48814609/151071998-3c9b42f5-3f57-4de6-
 Source: https://www.youtube.com/watch?v=vWLBFdf_ss0
 
 
+3. Star wars IV opening
+
+
+https://user-images.githubusercontent.com/48814609/151312670-c731b752-587f-4d16-9d8f-d4fd5bf54798.mp4
+
+
+Source: https://www.youtube.com/watch?v=vLgsf8Pei6Q
+
 ## To do list
 * clean up and refactor messy code
 * add option to change resolution quality and adjust the console fontsize accordingly
