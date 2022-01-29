@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
-            "args": [".\\video\\bad_apple.mp4"],
+            "args": ["-r", "high", ".\\video\\bad_apple.mp4"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <time.h>
+#include <getopt.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
@@ -18,10 +19,17 @@ static int64_t last_pts = AV_NOPTS_VALUE;
 HANDLE hStdout;
 HANDLE hStdin;
 HANDLE hdBuffer;
-int screenWidth = 480;
-int screenHeight = 135;
+int aspectRatio = 0;
+int screenWidth = 160;
+int screenHeight = 60;
+int fontSize = 16;
 char asciiSet[] = " .:-=+*#%@";
 double time_spent = 0.0;
+
+void print_usage() {
+	printf("Usage: ascii_animation.exe [-r {high|medium|low}] <video_path> \n");
+	exit(2);
+}
 
 void hidecursor()
 {
@@ -29,6 +37,86 @@ void hidecursor()
    CONSOLE_CURSOR_INFO info;
    info.bVisible = FALSE;
    SetConsoleCursorInfo(consoleHandle, &info);
+}
+
+void setConsoleParameters(HANDLE hStdout, int res_option, int aspect_ratio) {
+	if (aspect_ratio == 0) {
+		switch (res_option) {
+			case 0:
+				screenHeight = 45;
+				screenWidth = 160;
+				fontSize = 16;
+				break;
+			case 1:
+				screenHeight = 90;
+				screenWidth = 320;
+				fontSize = 12;
+				break;
+			case 2:
+				screenHeight = 135;
+				screenWidth = 480;
+				fontSize = 8;
+				break;
+		}
+	} else {
+		switch (res_option) {
+			case 0:
+				screenHeight = 60;
+				screenWidth = 120;
+				fontSize = 16;
+				break;
+			case 1:
+				screenHeight = 90;
+				screenWidth = 240;
+				fontSize = 12;
+				break;
+			case 2:
+				screenHeight = 135;
+				screenWidth = 360;
+				fontSize = 8;
+				break;
+		}
+	}
+
+	// Set the size of the screen buffer
+	COORD coord = { screenWidth, screenHeight};
+	SMALL_RECT const minimal_window = { 0, 0, 1, 1 };
+	SMALL_RECT Rect;
+	Rect.Top = 0;
+    Rect.Left = 0;
+    Rect.Bottom = screenHeight - 1;
+    Rect.Right = screenWidth - 1;
+
+	// if(!SetConsoleWindowInfo(hStdout, TRUE, &minimal_window)) {
+	// 	printf("SetConsoleWindowInfo to minimal failed\n");
+	// };
+	if (!SetConsoleScreenBufferSize(hStdout, coord)) {
+		printf("SetConsoleScreenBufferSize failed\n");
+	}
+	if (!SetConsoleWindowInfo(hStdout, TRUE, &Rect)) {
+		printf("SetConsoleWindowInfo to Rect failed\n");
+	}
+	if (!SetConsoleScreenBufferSize(hStdout, coord)) {
+		printf("SetConsoleScreenBufferSize failed\n");
+	}
+	if (!SetConsoleWindowInfo(hStdout, TRUE, &Rect)) {
+		printf("SetConsoleWindowInfo to Rect failed\n");
+	}
+
+	//  change console font size
+    CONSOLE_FONT_INFOEX cfi = {sizeof(cfi)};
+	GetCurrentConsoleFontEx(hStdout, FALSE, &cfi);
+	cfi.dwFontSize.Y = fontSize;
+	SetCurrentConsoleFontEx(hStdout, FALSE, &cfi);
+}
+
+int getAspectRatio(int x, int y) {
+	// support standard ratio 16:9(return 1) or 4:3(return 0)
+	double value = (double)x / y;
+    if (value > 1.7)
+        return 1;
+    else
+        return 0;
 }
 
 void usleep(int64_t usec) 
@@ -96,63 +184,49 @@ static void display_frame(const AVFrame *frame, HANDLE buffer, char asciiSet[], 
 }
 
 
-
-
-int main(int argc, const char *argv[]) {
+int main(int argc, char **argv) {
 	// check input argument
-	if (argc < 2) {
-		printf("require media file as input\n");
+	if (argc < 2 || argc > 4) {
+		print_usage();
 		return -1;
 	}
 
-	ShowWindow(GetConsoleWindow() , SW_MAXIMIZE);
-
+	int option;
+	int res_option = 1;
+	while ((option = getopt(argc, argv, "r:")) != -1) {
+		switch (option) {
+			case 'r':
+				if (strcmp(optarg, "high") == 0) {
+					res_option = 2;
+				}
+				if (strcmp(optarg, "medium") == 0) {
+					res_option = 1;
+				}
+				if (strcmp(optarg, "low") == 0) {
+					res_option = 0;
+				}
+				break;
+		}
+	}
 	
 
-	// Set the size of the screen buffer
+	ShowWindow(GetConsoleWindow() , SW_MAXIMIZE);
+
 	hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
 	hStdin = GetStdHandle(STD_INPUT_HANDLE);
 
-	COORD coord = { screenWidth, screenHeight + 2 };
-	SMALL_RECT const minimal_window = { 0, 0, 1, 1 };
-	SMALL_RECT Rect;
-	Rect.Top = 0; 
-    Rect.Left = 0; 
-    Rect.Bottom = screenHeight + 1; 
-    Rect.Right = screenWidth - 1;
-
-	if(!SetConsoleWindowInfo(hStdout, TRUE, &minimal_window)) {
-		printf("SetConsoleWindowInfo to minimal failed\n");
-	};
-	if (!SetConsoleScreenBufferSize(hStdout, coord)) {
-		printf("SetConsoleScreenBufferSize failed\n");
-	}
-	if (!SetConsoleWindowInfo(hStdout, TRUE, &Rect)) {
-		printf("SetConsoleWindowInfo to Rect failed\n");
-	}
-
 	hidecursor();
 
-	// //  change console font size
-	// HANDLE hcsb = CreateFileA("CONOUT$", GENERIC_WRITE | GENERIC_READ,
-    //     FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL); 
-
-    // CONSOLE_FONT_INFOEX cfi = {sizeof(cfi)};
-	// GetCurrentConsoleFontEx(hcsb, FALSE, &cfi);
-	// cfi.dwFontSize.X = 18;
-	// cfi.dwFontSize.Y = 16;
-	// SetCurrentConsoleFontEx(hcsb, FALSE, &cfi);
-	
 	// allocating memory for header information using AVFormatContext structure
 	AVFormatContext *pFormatContext = avformat_alloc_context();
 
 	// open file and read header
-	if (avformat_open_input(&pFormatContext, argv[1], NULL, NULL) !=0) {
-		av_log(0, AV_LOG_FATAL, "Wasn't possible opening the file: %s", argv[1]);
+	if (avformat_open_input(&pFormatContext, argv[argc-1], NULL, NULL) !=0) {
+		av_log(0, AV_LOG_FATAL, "Wasn't possible opening the file: %s", argv[argc-1]);
 		return -1;
 	}
 	system("cls");
-	printf("opening file %s\n", argv[1]);
+	printf("opening file %s\n", argv[argc-1]);
 
 	// get stream info
 	avformat_find_stream_info(pFormatContext, NULL);
@@ -204,6 +278,7 @@ int main(int argc, const char *argv[]) {
 	// // play music
 	// PlaySound(TEXT("./video/bad_apple.mp4"), NULL, SND_ASYNC);
 	
+	setConsoleParameters(hStdout, res_option, getAspectRatio(pCodecParameters->width, pCodecParameters->height));
 
 	// decode video
 	AVCodecContext *pCodecContext = avcodec_alloc_context3(pCodec);
