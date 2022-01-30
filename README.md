@@ -29,8 +29,9 @@ https://user-images.githubusercontent.com/48814609/151312670-c731b752-587f-4d16-
 Source: https://www.youtube.com/watch?v=vLgsf8Pei6Q
 
 ## To do list
-* clean up and refactor messy code
-* add option to change resolution quality and adjust the console fontsize accordingly
-* automatically choose proper resolution ratio according to original video's aspect ratio
-* add audio decoding and playback
-* proper video frame playback timestamps (currently doesn't match original video timestamps)
+
+- [x] add option to change resolution quality and adjust the console fontsize accordingly
+- [x] automatically choose proper resolution ratio according to original video's aspect ratio
+- [ ] add audio decoding and playback
+- [ ] proper video frame playback timestamps (currently doesn't match original video timestamps)
+- [ ] clean up and refactor messy code
