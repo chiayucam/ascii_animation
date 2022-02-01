@@ -43,40 +43,46 @@ void setConsoleParameters(HANDLE hStdout, int res_option, int aspect_ratio) {
 	if (aspect_ratio == 0) {
 		switch (res_option) {
 			case 0:
-				screenHeight = 45;
-				screenWidth = 160;
-				fontSize = 16;
+				screenHeight = 36;
+				screenWidth = 96;
+				fontSize = 27;
 				break;
 			case 1:
-				screenHeight = 90;
-				screenWidth = 320;
-				fontSize = 12;
+				screenHeight = 72;
+				screenWidth = 192;
+				fontSize = 14;
 				break;
 			case 2:
-				screenHeight = 135;
-				screenWidth = 480;
-				fontSize = 8;
+				screenHeight = 108;
+				screenWidth = 288;
+				fontSize = 9;
 				break;
 		}
 	} else {
 		switch (res_option) {
 			case 0:
-				screenHeight = 60;
-				screenWidth = 120;
-				fontSize = 16;
+				screenHeight = 36;
+				screenWidth = 128;
+				fontSize = 27;
 				break;
 			case 1:
-				screenHeight = 90;
-				screenWidth = 240;
-				fontSize = 12;
+				screenHeight = 72;
+				screenWidth = 256;
+				fontSize = 14;
 				break;
 			case 2:
-				screenHeight = 135;
-				screenWidth = 360;
-				fontSize = 8;
+				screenHeight = 108;
+				screenWidth = 384;
+				fontSize = 9;
 				break;
 		}
 	}
+
+	// change console font size
+    CONSOLE_FONT_INFOEX cfi = {sizeof(cfi)};
+	GetCurrentConsoleFontEx(hStdout, FALSE, &cfi);
+	cfi.dwFontSize.Y = fontSize;
+	SetCurrentConsoleFontEx(hStdout, FALSE, &cfi);
 
 	// Set the size of the screen buffer
 	COORD coord = { screenWidth, screenHeight};
@@ -87,27 +93,15 @@ void setConsoleParameters(HANDLE hStdout, int res_option, int aspect_ratio) {
     Rect.Bottom = screenHeight - 1;
     Rect.Right = screenWidth - 1;
 
-	// if(!SetConsoleWindowInfo(hStdout, TRUE, &minimal_window)) {
-	// 	printf("SetConsoleWindowInfo to minimal failed\n");
-	// };
+	if(!SetConsoleWindowInfo(hStdout, TRUE, &minimal_window)) {
+		printf("SetConsoleWindowInfo to minimal failed\n");
+	};
 	if (!SetConsoleScreenBufferSize(hStdout, coord)) {
 		printf("SetConsoleScreenBufferSize failed\n");
 	}
 	if (!SetConsoleWindowInfo(hStdout, TRUE, &Rect)) {
 		printf("SetConsoleWindowInfo to Rect failed\n");
 	}
-	if (!SetConsoleScreenBufferSize(hStdout, coord)) {
-		printf("SetConsoleScreenBufferSize failed\n");
-	}
-	if (!SetConsoleWindowInfo(hStdout, TRUE, &Rect)) {
-		printf("SetConsoleWindowInfo to Rect failed\n");
-	}
-
-	//  change console font size
-    CONSOLE_FONT_INFOEX cfi = {sizeof(cfi)};
-	GetCurrentConsoleFontEx(hStdout, FALSE, &cfi);
-	cfi.dwFontSize.Y = fontSize;
-	SetCurrentConsoleFontEx(hStdout, FALSE, &cfi);
 }
 
 int getAspectRatio(int x, int y) {
@@ -147,16 +141,11 @@ static void display_frame(const AVFrame *frame, HANDLE buffer, char asciiSet[], 
 	pos.Y = 0;
 	/* Trivial ASCII grayscale display. */
 	p0 = frame->data[0];
-    // puts("\033c");
 	
     for (y = 0; y < frame->height; y++) {
         p1 = p0;
         for (x = 0; x < frame->width; x++) {
 			*pdata = asciiSet[*(p1) / (255/asciiSetLength)];
-			// *pAscii = asciiSet[*(p2) / 32];
-			// putchar(" .,-+#$@"[*(p2) / 32]);
-            // putchar(" .,-+#$@"[*p2 / 32]);
-			// WriteConsole(hStdout, " .,-+#$@"[*(p2) / 32], 1, &cChars, NULL);
 			p1++;
 			pdata++;
 		}
