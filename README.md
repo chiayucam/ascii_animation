@@ -2,6 +2,9 @@
 Turn videos into ascii animation in the Windows command console (prototype)  
 Uses FFmpeg libraries to decode video into AVframes and display them as ascii chars
 
+## Usage
+    ascii_animation.exe [-r {high|medium|low}] <video_path>
+
 ## Examples
 1. Bad apple  
 
